@@ -33,6 +33,7 @@ function solve(network, id)
     catch e
         return 0
     end
+    return 0
 end
 
 function solve_contingency(id::Int, network, ::LineContingency)
@@ -99,3 +100,4 @@ if rank == 0
     end
 end
 MPI.Finalize()
+
