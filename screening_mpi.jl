@@ -62,32 +62,36 @@ nprocs = MPI.Comm_size(MPI.COMM_WORLD)
 rank = MPI.Comm_rank(MPI.COMM_WORLD)
 results_gens = zeros(Int,ngen)
 results_lines = zeros(Int,nlines)
+# Generator contingencies
 for i in 1:ngen
     if mod(i, nprocs) == rank
         println("Rank $rank with $i and $nprocs Solving generator contingency $i")
         results_gens[i] = solve_contingency(i, network, GenContingency())
     end
 end
+MPI.Reduce!(results_gens, MPI.SUM, 0, MPI.COMM_WORLD)
+if rank == 0
+    @show ngen
+    println("Found $(length(findall(x -> x == 1, results_gens))) feasible generator contingencies of a total of $ngen generators: $(findall(x -> x == 1, results_gens))")
+    open("$case.gen", "w") do io
+        for res in findall(x -> x == 1, results_gens)
+            write(io,"$res\n")
+        end
+    end
+end
+
+# Line contingencies
 for i in 1:nlines
     if mod(i, nprocs) == rank
         println("Solving line contingency $i")
         results_lines[i] = solve_contingency(i, network, LineContingency())
     end
 end
-MPI.Reduce!(results_gens, MPI.SUM, 0, MPI.COMM_WORLD)
 MPI.Reduce!(results_lines, MPI.SUM, 0, MPI.COMM_WORLD)
 
 if rank == 0
-    @show ngen
     @show nlines
-    println("Found $(length(findall(x -> x == 1, results_gens))) feasible generator contingencies of a total of $ngen generators: $(findall(x -> x == 1, results_gens))")
     println("Found $(length(findall(x -> x == 1, results_lines))) feasible line contingencies of a total of $nlines lines: $(findall(x -> x == 1, results_lines))")
-
-    open("$case.gen", "w") do io
-        for res in findall(x -> x == 1, results_gens)
-            write(io,"$res\n")
-        end
-    end
     open("$case.lines", "w") do io
         for res in findall(x -> x == 1, results_lines)
             write(io,"$res\n")
