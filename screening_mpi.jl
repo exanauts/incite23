@@ -1,10 +1,9 @@
 using MPI
 using MKL
 using PowerModels
-using Ipopt
 using ExaAdmm
 using LazyArtifacts
-
+using Ipopt
 
 abstract type Contingency end
 struct LineContingency <: Contingency end
@@ -12,19 +11,11 @@ struct GenContingency <: Contingency end
 
 function solve(network, id::Int64)
     try
-        # if id != 133
-        #     result = run_ac_opf(network, optimizer_with_attributes(
-        #         Ipopt.Optimizer,
-        #         "print_level" => 0, "max_iter" => 200
-        #         )
-        #     )
-        # else
-            result = solve_ac_opf(network, optimizer_with_attributes(
-                Ipopt.Optimizer,
-                "print_level" => 0, "max_iter" => 200
-                )
+        result = solve_ac_opf(network, optimizer_with_attributes(
+            Ipopt.Optimizer,
+            "print_level" => 10, "max_iter" => 200, "linear_solver" => "ma27"
             )
-        # end
+        )
         if result["termination_status"] == LOCALLY_SOLVED
             return 1
         else
@@ -51,7 +42,8 @@ MPI.Init()
 
 # case = ARGS[1]
 case = "case_ACTIVSg10k"
-# case = "case118"
+case = "case118"
+case = "case9"
 const CASE_PATH = joinpath(artifact"ExaData", "ExaData", "matpower", "$case.m")
 
 network = PowerModels.parse_file(CASE_PATH; import_all=true)
