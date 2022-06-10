@@ -10,7 +10,7 @@ abstract type Contingency end
 struct LineContingency <: Contingency end
 struct GenContingency <: Contingency end
 
-function solve(network, id)
+function solve(network, id::Int64)
     try
         # if id != 133
         #     result = run_ac_opf(network, optimizer_with_attributes(
@@ -36,13 +36,13 @@ function solve(network, id)
     return 0
 end
 
-function solve_contingency(id::Int, network, ::LineContingency)
+function solve_contingency(id::Int64, network, ::LineContingency)
     cnetwork = deepcopy(network)
     cnetwork["branch"]["$id"]["br_status"] = 0
     return solve(cnetwork, id)
 end
 
-function solve_contingency(id::Int, network, ::GenContingency)
+function solve_contingency(id::Int64, network, ::GenContingency)
     cnetwork = deepcopy(network)
     cnetwork["gen"]["$id"]["gen_status"] = 0
     return solve(cnetwork, id)
@@ -61,8 +61,8 @@ ngen = length(network["gen"])
 nlines = length(network["branch"])
 nprocs = MPI.Comm_size(MPI.COMM_WORLD)
 rank = MPI.Comm_rank(MPI.COMM_WORLD)
-results_gens = zeros(Int,ngen)
-results_lines = zeros(Int,nlines)
+results_gens = zeros(Int64,ngen)
+results_lines = zeros(Int64,nlines)
 # Generator contingencies
 for i in 1:ngen
     if mod(i, nprocs) == rank
