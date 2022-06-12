@@ -25,7 +25,6 @@ function set_ac_start!(data)
     end
     for (i,branch) in data["branch"]
         if haskey(branch, "pf")
-            println("Setting_branches")
             branch["pf_start"] = branch["pf"]
         end
         if haskey(branch, "qf")
@@ -93,12 +92,11 @@ result = solve_ac_opf(network, optimizer_with_attributes(
     "print_level" => verbose, "linear_solver" => "ma27"
     )
 )
-
+set_ac_start!(network)
 if rank == 0
     PowerModels.export_matpower("export.m", network)
 end
 
-set_ac_start!(network)
 ngen = length(network["gen"])
 nlines = length(network["branch"])
 results_gens = zeros(Int64,ngen)
