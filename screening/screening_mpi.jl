@@ -1,8 +1,13 @@
+using OpenBLAS_jll
 using MPI
 using PowerModels
 using ExaAdmm
 using LazyArtifacts
 using Ipopt
+using Libdl
+
+Libdl.dlopen(OpenBLAS_jll.libopenblas_path, RTLD_NOW | RTLD_GLOBAL ;throw_error=true)
+Libdl.dlopen(OpenBLAS_jll.libopenblas_path, RTLD_NOW | RTLD_GLOBAL ;throw_error=true)
 
 abstract type Contingency end
 struct LineContingency <: Contingency end
@@ -18,12 +23,20 @@ function set_ac_start!(data)
         gen["pg_start"] = gen["pg"]
         gen["qg_start"] = gen["qg"]
     end
-
     for (i,branch) in data["branch"]
-        branch["pf_start"] = branch["pf"]
-        branch["qf_start"] = branch["qf"]
-        branch["pt_start"] = branch["pt"]
-        branch["qt_start"] = branch["qt"]
+        if haskey(branch, "pf")
+            println("Setting_branches")
+            branch["pf_start"] = branch["pf"]
+        end
+        if haskey(branch, "qf")
+            branch["qf_start"] = branch["qf"]
+        end
+        if haskey(branch, "pt")
+            branch["pt_start"] = branch["pt"]
+        end
+        if haskey(branch, "qt")
+            branch["qt_start"] = branch["qt"]
+        end
     end
 end
 
