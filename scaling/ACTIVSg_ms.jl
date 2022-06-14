@@ -10,9 +10,10 @@ using LazyArtifacts
 using MPI, CUDA
 
 MPI.Init()
+rank = MPI.Comm_rank(MPI.COMM_WORLD)
 
 solver     = length(ARGS) > 0 ? ARGS[1] : "exatron"
-num_sweeps = length(ARGS) > 1 ? parse(Int, ARGS[2]) : (solver == "exatron" ? 3 : 2)
+num_sweeps = length(ARGS) > 1 ? parse(Int, ARGS[2]) : (solver == "exatron" ? 1 : 2)
 rho0       = length(ARGS) > 2 ? parse(Float64, ARGS[3]) : (solver == "exatron" ? 1e-1 : 1e-2)
 obj_scale  = length(ARGS) > 3 ? parse(Float64, ARGS[4]) : 1e-3
 t_start    = length(ARGS) > 4 ? parse(Int, ARGS[5]) : 21
@@ -31,13 +32,12 @@ case_file = joinpath(artifact"ExaData", "ExaData/matpower/$(case).m")
 modelinfo = ModelInfo()
 modelinfo.case_name = case
 modelinfo.time_horizon_start = t_start
-modelinfo.num_time_periods = 12
+modelinfo.num_time_periods = 1
 modelinfo.load_scale = 1.0
 if startswith(case, "case_ACTIVSg")
     tfile = Int(24 * 7 * (60 / resolution))
-    const DATA_DIR = joinpath(@__DIR__, "..", "data")
     case_file = joinpath(DATA_DIR, "$(case).m")
-    load_file = joinpath(DATA_DIR, "ACTIVSg_Time_Series/mp_demand/$(case)_Jun_oneweek_$(tfile)_$(resolution)min")
+    load_file = joinpath(DATA_DIR, "$(case)_Jun_oneweek_$(tfile)_$(resolution)min")
     modelinfo.ramp_scale = Float64(resolution)
 else
     load_file = joinpath(artifact"ExaData", "ExaData", "mp_demand", "$(case)_oneweek_168")
@@ -57,17 +57,22 @@ algparams = AlgParams()
 algparams.verbose = 1
 algparams.tol = 1e-3
 algparams.decompCtgs = false
-algparams.tron_rho_pq = 4e3
-algparams.tron_rho_pa = 4e4
-algparams.tron_outer_iterlim = 30
-algparams.tron_inner_iterlim = 1000
-algparams.tron_scale = 1e-4
+algparams.tron_rho_pq = 3e3
+algparams.tron_rho_pa = 3e4
+algparams.tron_outer_iterlim = 10
+algparams.tron_inner_iterlim = 500
+algparams.tron_scale = 1e-5
 algparams.tron_outer_eps = 1e-4
 algparams.num_sweeps = num_sweeps
-if isa(backend, ProxAL.AdmmBackend)
-    algparams.device = ProxAL.CUDADevice
-end
-algparams.optimizer = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0, "tol" => 1e-4) # "linear_solver" => "ma27"
+# if isa(backend, ProxAL.AdmmBackend)
+#     algparams.device = ProxAL.CUDADevice
+# end
+algparams.optimizer = optimizer_with_attributes(
+    Ipopt.Optimizer,
+    "print_level" => 0,
+    "tol" => 1e-4,
+    "linear_solver" => "ma27"
+)
 algparams.init_opf = false
 
 # dry run to compile everything
@@ -99,16 +104,22 @@ if MPI.Comm_rank(MPI.COMM_WORLD) == 0
         info = ProxAL.optimize!(nlp; ρ_t_initial = rho0, τ_factor = 2.5)
     end
 
-    @show(ARGS)
-    @show(info.iter)
-    @show(info.maxviol_d)
-    @show(info.maxviol_t_actual)
+    # @show(ARGS)
+    # @show(info.iter)
+    # @show(info.maxviol_d)
+    # @show(info.maxviol_t_actual)
     @show(info.objvalue)
-    @show(info.wall_time_elapsed_actual)
-    @show(info.wall_time_elapsed_ideal)
+    # @show(info.wall_time_elapsed_actual)
+    # @show(info.wall_time_elapsed_ideal)
     @show(nlp.problem.x.Pg)
+    open("sol_$(solver).log", "w") do io
+        write(io, "Pg: $(nlp.problem.x.Pg)\n")
+        write(io, "Objective value: $(info.objvalue)\n")
+        write(io, "Iterations: $(info.iter)\n")
+    end
 else
     info = ProxAL.optimize!(nlp; ρ_t_initial = rho0, τ_factor = 2.5)
 end
+
 
 MPI.Finalize()
