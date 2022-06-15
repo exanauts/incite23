@@ -12,16 +12,16 @@ using MPI, CUDA
 MPI.Init()
 rank = MPI.Comm_rank(MPI.COMM_WORLD)
 
-solver     = length(ARGS) > 0 ? ARGS[1] : "exaadmm"
-num_sweeps = length(ARGS) > 1 ? parse(Int, ARGS[2]) : (solver == "exaadmm" ? 1 : 1)
-rho0       = length(ARGS) > 2 ? parse(Float64, ARGS[3]) : (solver == "exaadmm" ? 1e-1 : 1e-2)
-obj_scale  = length(ARGS) > 3 ? parse(Float64, ARGS[4]) : 1e-3
-t_start    = length(ARGS) > 4 ? parse(Int, ARGS[5]) : 1
+solver        = length(ARGS) > 0 ? ARGS[1] : "exaadmm"
+case          = length(ARGS) > 1 ? ARGS[2] : "case9.m"
+time_periods  = length(ARGS) > 2 ? parse(Int, ARGS[3]) : 1
+contingencies = length(ARGS) > 3 ? parse(Int, ARGS[4]) : 0
 
-# choose case
-case = "case_ACTIVSg10k"
-time_periods = 1
-contingencies = 0
+
+obj_scale = 1e-3
+num_sweeps = (solver == "exaadmm" ? 3 : 2)
+rho0 = (solver == "exaadmm" ? 1e-1 : 1e-2)
+t_start = 1
 resolution = 30 #in minutes
 
 # choose backend
@@ -89,7 +89,7 @@ end
 
 # Set up and solve problem
 algparams.verbose = 1
-algparams.iterlim = (solver == "ipopt") ? 100 : 500
+algparams.iterlim = (solver == "ipopt") ? 300 : 1500
 algparams.mode = :coldstart
 ranks = MPI.Comm_size(MPI.COMM_WORLD)
 cur_logger = global_logger(NullLogger())
@@ -106,7 +106,7 @@ if MPI.Comm_rank(MPI.COMM_WORLD) == 0
         info = ProxAL.optimize!(nlp; ρ_t_initial = rho0, τ_factor = 2.5)
     end
 
-    open("sol_$(solver).log", "w") do io
+    open("sol_$(solver)_$(case)_$(time_periods)_$(contingencies).log", "w") do io
         write(io, "pg: $(nlp.problem.x.Pg)\n")
         write(io, "maxviol_d: $(info.maxviol_d)\n")
         write(io, "maxviol_t_actual: $(info.maxviol_t_actual)\n")
